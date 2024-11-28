@@ -2,11 +2,9 @@ export type Query<T> = {
   [P in keyof T]?: QueryCondition<T[P]>;
 } & Operations<T>;
 
-type QueryCondition<FieldType> =
-  | FieldType
-  | Conditions<FieldType>;
+export type QueryCondition<FieldType> = FieldType | Conditions<FieldType> | Operations<QueryCondition<FieldType>>;
 
-interface Conditions<ValueType> {
+export interface Conditions<ValueType> {
   $eq?: ValueType;
   $ne?: ValueType;
   $gt?: ValueType;
@@ -15,76 +13,134 @@ interface Conditions<ValueType> {
   $lte?: ValueType;
   $in?: ValueType[];
   $nin?: ValueType[];
+  $sub?: ValueType[];
+  $nsub?: ValueType[];
+  $sup?: ValueType[];
+  $nsup?: ValueType[];
+  $con?: ValueType;
+  $ncon?: ValueType;
   $exists?: boolean;
   $match?: RegExp | string;
   $nmatch?: RegExp | string;
   $bits?: number;
   $nbits?: number;
-};
+  $typeof: string;
+  $ntypeof: string;
+}
 
-type ConditionKeys = keyof Conditions<unknown>;
+export type ConditionKeys = keyof Conditions<unknown>;
 
-interface Operations<T> {
+export interface Operations<T> {
   $and?: Query<T>[];
   $or?: Query<T>[];
   $nor?: Query<T>[];
   $not?: Query<T>;
+}
+
+export type OperationKeys = keyof Operations<unknown>;
+
+export const stringify = (value: unknown) => {
+  if (value === undefined) {
+    return 'undefined';
+  }
+  if (value instanceof RegExp) {
+    return `/${value.source}/${value.flags}`;
+  }
+  return JSON.stringify(value);
 };
 
-type OperationKeys = keyof Operations<unknown>;
+export interface Condition {
+  (valuePath: string, value: any, context: Context): string;
+}
 
-const conditions: Record<ConditionKeys, any> = {
+const conditions: Record<ConditionKeys, Condition> = {
   $eq: (valuePath: string, value: unknown) => `(${valuePath} === ${value})`,
   $ne: (valuePath: string, value: unknown) => `(${valuePath} !== ${value})`,
   $gt: (valuePath: string, value: unknown) => `(${valuePath} > ${value})`,
   $gte: (valuePath: string, value: unknown) => `(${valuePath} >= ${value})`,
   $lt: (valuePath: string, value: unknown) => `(${valuePath} < ${value})`,
   $lte: (valuePath: string, value: unknown) => `(${valuePath} <= ${value})`,
-  $in: (valuePath: string, value: unknown) => `(${value}.includes(${valuePath}))`,
-  $nin: (valuePath: string, value: unknown) => `(!${value}.includes(${valuePath}))`,
-  $exists: (valuePath: string, value: unknown) => `((${valuePath} !== undefined && ${valuePath} !== null) === ${value})`,
-  $match: (valuePath: string, value: unknown) => `${value}.test('' + ${valuePath})`,
-  $nmatch: (valuePath: string, value: unknown) => `!${value}.test('' + ${valuePath})`,
+  $in: (valuePath: string, value: unknown, context: Context) => {
+    const name = context.register(`new Set(${value})`);
+    return `${name}.has(${valuePath})`;
+  },
+  $nin: (valuePath: string, value: unknown, context: Context) => `!${conditions.$in(valuePath, value, context)}`,
+  $sub: (valuePath: string, value: unknown, context: Context) => {
+    const name = context.register(`new Set(${value})`);
+    return `${valuePath}.every((value) => ${name}.has(value))`;
+  },
+  $nsub: (valuePath: string, value: unknown, context: Context) => `!${conditions.$sub(valuePath, value, context)}`,
+  $sup: (valuePath: string, value: unknown, context: Context) => {
+    const name = context.register(`new Set(${valuePath})`);
+    return `${value}.every((value) => ${name}.has(value))`;
+  },
+  $nsup: (valuePath: string, value: unknown, context: Context) => `!${conditions.$sup(valuePath, value, context)}`,
+  $con: (valuePath: string, value: unknown) => `${valuePath}.includes(${value})`,
+  $ncon: (valuePath: string, value: unknown) => `!${valuePath}.includes(${value})`,
+  $exists: (valuePath: string, value: boolean) => `((${valuePath} !== undefined && ${valuePath} !== null) === ${value})`,
+  $match: (valuePath: string, value: RegExp) => `${value}.test('' + ${valuePath})`,
+  $nmatch: (valuePath: string, value: RegExp) => `!${value}.test('' + ${valuePath})`,
   $bits: (valuePath: string, value: unknown) => `((${valuePath} & ${value}) !== 0)`,
   $nbits: (valuePath: string, value: unknown) => `((${valuePath} & ${value}) === 0)`,
+  $typeof: (valuePath: string, value: unknown) => `(typeof ${valuePath} === ${value})`,
+  $ntypeof: (valuePath: string, value: unknown) => `(typeof ${valuePath} !== ${value})`,
 };
 
 const operations: Record<keyof Operations<unknown>, any> = {
   $and: (value: unknown[]) => `(${value.join(' && ')})`,
   $or: (value: unknown[]) => `(${value.join(' || ')})`,
-  $nor: (value: unknown[]) => `(!(${value.join(' || ')}))`,
-  $not: (value: unknown) => `(!(${value}))`,
+  $nor: (value: unknown[]) => `!(${value.join(' || ')})`,
+  $not: (value: unknown[]) => `!(${value})`,
+};
+
+class Context {
+  private counter = 0;
+  private values: string[] = [];
+  private cacheMap = new Map<string, string>();
+
+  register(code: string) {
+    if (!this.cacheMap.has(code)) {
+      const name = `v$$${this.counter++}`;
+      this.values.push(`const ${name} = ${code};`);
+      this.cacheMap.set(code, name);
+    }
+    return this.cacheMap.get(code)!;
+  }
+  toString() {
+    return this.values.join('\n');
+  }
 }
 
-
-const queryCodeGen = <T extends object>(query: Query<T>, valuePath: string, path: string): string => {
+const filterCodeGen = <T extends object>(query: Query<T> | undefined, valuePath: string, context: Context): string => {
   if (typeof query === 'object' && query !== null) {
     const condition = Object.entries(query).map(([key, value]) => {
       if (key in conditions) {
-        return conditions[key as ConditionKeys](valuePath, JSON.stringify(value));
+        return conditions[key as ConditionKeys](valuePath, stringify(value), context);
       }
       if (key in operations) {
         const values = Array.isArray(value) ? value : [value];
-        return operations[key as OperationKeys](values.map((value) => queryCodeGen(value, valuePath, path)));
+        return operations[key as OperationKeys](values.map((v) => filterCodeGen(v, valuePath, context)));
       }
-      const valueSubPath = `${valuePath}?.[${JSON.stringify(key)}]`;
+      const valueSubPath = `${valuePath}?.[${stringify(key)}]`;
       if (value instanceof RegExp) {
-        return conditions.$match(valueSubPath, value.toString());
+        return conditions.$match(valueSubPath, value.toString(), context);
       }
       if (typeof value === 'object' && value !== null) {
-        return queryCodeGen(value, valueSubPath, path);
+        return filterCodeGen(value, valueSubPath, context);
       }
-      return conditions.$eq(valueSubPath, JSON.stringify(value));
+      return conditions.$eq(valueSubPath, JSON.stringify(value), context);
     });
-
-    return `${condition.join(' && ')}`;
+    if (condition.length > 0) {
+      return `${condition.join(' && ')}`;
+    }
   }
   return 'true';
-}
+};
 
-export const createQuery = <T extends object>(query: Query<T>, rootName: string) => {
-  const code = queryCodeGen(query, 'data', rootName);
-  const filter = new Function('data', `return ${code || 'true'};`);
+export const createFilter = <T extends object>(query?: Query<T>) => {
+  const context = new Context();
+  const code = filterCodeGen(query, 'data', context);
+  const filter = new Function('data', `${context}\nreturn ${code};`);
   return (data: T) => filter(data);
 };
 
@@ -92,27 +148,29 @@ export type SortType = 'asc' | 'desc' | 1 | -1;
 
 export type Sort<T> = T extends object
   ? {
-    [K in keyof T]?: T[K] extends object ? Sort<T[K]> : SortType;
-  }
+      [K in keyof T]?: T[K] extends object ? Sort<T[K]> : SortType;
+    }
   : SortType;
 
-export const SORT_EXPR = /^(asc|desc|1|-1)$/i
+const SORT_EXPR = /^(asc|desc|1|-1)$/i;
 
-export const SORT_MAP: Record<SortType, 1 | -1> = {
+const SORT_MAP: Record<SortType, 1 | -1> = {
   asc: 1,
   desc: -1,
   1: 1,
   '-1': -1,
 };
 
-export const sortCodeGen = <T>(sort: Sort<T>, valuePath: [string, string], path: string): string => {
+const sortCodeGen = <T>(sort: Sort<T>, valuePath: [string, string]): string => {
   if (typeof sort === 'object' && sort !== null) {
     const condition = Object.entries(sort).map(([key, value]) => {
       const valueSubPathA = `${valuePath[0]}?.[${JSON.stringify(key)}]`;
       const valueSubPathB = `${valuePath[1]}?.[${JSON.stringify(key)}]`;
-      return sortCodeGen(value, [valueSubPathA, valueSubPathB], path);
+      return sortCodeGen(value, [valueSubPathA, valueSubPathB]);
     });
-    return condition.join(' || ');
+    if (condition.length > 0) {
+      return condition.join(' || ');
+    }
   }
   if (typeof sort === 'string' && SORT_EXPR.test(sort)) {
     return `(${valuePath[0]}?.localeCompare(${valuePath[1]}) * ${SORT_MAP[sort as SortType]})`;
@@ -123,9 +181,8 @@ export const sortCodeGen = <T>(sort: Sort<T>, valuePath: [string, string], path:
   return `0`;
 };
 
-export const createSort = <T>(sort: Sort<T>, rootName: string) => {
-  const code = sortCodeGen(sort, ['a', 'b'], rootName);
-  const filter = new Function('a', 'b', `return ${code || 0};`);
-  console.log(filter.toString());
-  return (data: T) => filter(data);
+export const createSort = <T>(sort: Sort<T>) => {
+  const code = sortCodeGen(sort, ['a', 'b']);
+  const sortFn = new Function('a', 'b', `return ${code};`);
+  return (a: T, b: T) => sortFn(a, b);
 };
