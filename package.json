@@ -1,6 +1,6 @@
 {
   "name": "ajoq",
-  "version": "0.0.2-0",
+  "version": "0.0.3",
   "description": "",
   "type": "module",
   "types": "build/index.d.ts",
@@ -15,7 +15,6 @@
     "test": "jest",
     "lint": "eslint src",
     "prepare": "husky"
-
   },
   "keywords": [],
   "author": "Ivan Zakharchanka",
