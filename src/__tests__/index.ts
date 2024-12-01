@@ -19,16 +19,23 @@ const negative = {
 };
 
 const data = [positive, negative];
+type Data = typeof data[number];
 
 describe('AJOQ test suite', () => {
-  it('should create empty filter', () => {
-    const filter = createFilter();
-    expect(filter(positive)).toBe(true);
-    expect(filter(negative)).toBe(true);
-
-  });
   it('should stringify undefined', () => {
     expect(stringify(undefined)).toBe('undefined');
+  });
+
+  it('should create a value filter', () => {
+    const filter = createFilter<number>(1);
+    expect(filter(1)).toBe(true);
+    expect(filter(0)).toBe(false);
+  });
+
+  it('should fail on undefined', () => {
+    const filterFn = createFilter(undefined as any);
+    const result = data.filter(filterFn);
+    expect(result).toStrictEqual([]);
   });
 
   it.each([
@@ -45,11 +52,11 @@ describe('AJOQ test suite', () => {
         $lte: 42,
         $in: [42, 24],
         $nin: [24],
-        $bits: 0b010,
-        $nbits: 0b100,
+        $bits: 0b101010,
+        $nbits: 0b101011,
         $exists: true,
-        $typeof: 'number',
-        $ntypeof: 'string',
+        $type: 'number',
+        $ntype: 'string',
       }
     },
     {
@@ -66,8 +73,8 @@ describe('AJOQ test suite', () => {
         $match: /hello/i,
         $nmatch: /goodbye/i,
         $exists: true,
-        $typeof: 'string',
-        $ntypeof: 'number',
+        $type: 'string',
+        $ntype: 'number',
       }
     },
     {
@@ -77,8 +84,8 @@ describe('AJOQ test suite', () => {
         $in: [true],
         $nin: [false],
         $exists: true,
-        $typeof: 'boolean',
-        $ntypeof: 'string',
+        $type: 'boolean',
+        $ntype: 'string',
       }
     },
     {
@@ -90,16 +97,16 @@ describe('AJOQ test suite', () => {
         $con: 1,
         $ncon: 4,
         $exists: true,
-        $typeof: 'object',
-        $ntypeof: 'string',
+        $type: 'object',
+        $ntype: 'string',
         length: 3,
       }
     },
     {
       name: 'object', filter: {
         $exists: true,
-        $typeof: 'object',
-        $ntypeof: 'string',
+        $type: 'object',
+        $ntype: 'string',
         foo: {
           $exists: true,
         },
@@ -136,7 +143,7 @@ describe('AJOQ test suite', () => {
     },
 
   ])('should create a filter function for $name', ({ name, filter }) => {
-    const filterFn = createFilter<typeof data[number]>({
+    const filterFn = createFilter<Data>({
       [name]: filter,
     });
     const result = data.filter(filterFn);
@@ -144,31 +151,55 @@ describe('AJOQ test suite', () => {
   });
 
   it('should create a numeric sort asc function', () => {
-    const sortFn = createSort<typeof data[number]>({ number: 1 });
+    const sortFn = createSort<Data>({ number: 1 });
     const result = data.sort(sortFn);
     expect(result).toStrictEqual([negative, positive]);
   });
 
   it('should create a numeric sort desc function', () => {
-    const sortFn = createSort<typeof data[number]>({ number: -1 });
+    const sortFn = createSort<Data>({ number: -1 });
     const result = data.sort(sortFn);
     expect(result).toStrictEqual([positive, negative]);
   });
 
   it('should create a strings sort asc function', () => {
-    const sortFn = createSort<typeof data[number]>({ string: 'asc' });
+    const sortFn = createSort<Data>({ string: 'asc' });
     const result = data.sort(sortFn);
     expect(result).toStrictEqual([negative, positive]);
   });
 
   it('should create a strings sort desc function', () => {
-    const sortFn = createSort<typeof data[number]>({ string: 'desc' });
+    const sortFn = createSort<Data>({ string: 'desc' });
     const result = data.sort(sortFn);
     expect(result).toStrictEqual([positive, negative]);
   });
 
+  it('should create an array length sort function', () => {
+    const sortFn = createSort<Data>({ array: { length : 1 } });
+    const result = data.sort(sortFn);
+    expect(result).toStrictEqual([positive, negative]);
+  });
+
+  it('should create an array element sort function', () => {
+    const sortFn = createSort<Data>({ array: { [0] : -1 } });
+    const result = data.sort(sortFn);
+    expect(result).toStrictEqual([negative, positive]);
+  });
+
+  it('should create a boolean sort function', () => {
+    const sortFn = createSort<Data>({ number: true });
+    const result = data.sort(sortFn);
+    expect(result).toStrictEqual([negative, positive]);
+  });
+
   it('should create an empty sort function', () => {
-    const sortFn = createSort<typeof data[number]>({});
+    const sortFn = createSort<Data>({});
+    const result = data.sort(sortFn);
+    expect(result).toStrictEqual(data);
+  });
+
+  it('should create a value sort function', () => {
+    const sortFn = createSort<Data>();
     const result = data.sort(sortFn);
     expect(result).toStrictEqual(data);
   });

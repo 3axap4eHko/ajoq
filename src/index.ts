@@ -1,43 +1,81 @@
-export type Query<T> = {
-  [P in keyof T]?: QueryCondition<T[P]>;
-} & Operations<T>;
+export type RegExpOrString<T> = T extends string ? RegExp | T : T;
+export type ItemType<T> = T extends ReadonlyArray<infer U> ? T | RegExpOrString<U> : RegExpOrString<T>;
+export type FilterCondition<T> = T | ItemType<T> | PureFilterOperators<T> | PureFilterOperators<ItemType<T>> | LogicOperators<FilterCondition<T>>;
+export type QueryStatefulCondition<T> =
+  | T
+  | ItemType<T>
+  | StatefulFilterOperators<T>
+  | StatefulFilterOperators<ItemType<T>>
+  | LogicOperators<FilterCondition<T>>;
 
-export type QueryCondition<FieldType> = FieldType | Conditions<FieldType> | Operations<QueryCondition<FieldType>>;
+export type Filter<T> = {
+  [P in keyof T]?: FilterCondition<T[P]>;
+} & LogicOperators<T>;
 
-export interface Conditions<ValueType> {
+export interface LogicOperators<T> {
+  $and?: Filter<T>[];
+  $or?: Filter<T>[];
+  $nor?: Filter<T>[];
+  $not?: Filter<T>;
+}
+
+export interface ConditionFn {
+  (valuePath: string, value: any, context: Context): string;
+}
+
+export type OperationKeys = keyof LogicOperators<unknown>;
+
+export interface PureFilterOperators<ValueType> {
   $eq?: ValueType;
   $ne?: ValueType;
   $gt?: ValueType;
   $gte?: ValueType;
   $lt?: ValueType;
   $lte?: ValueType;
-  $in?: ValueType[];
-  $nin?: ValueType[];
-  $sub?: ValueType[];
-  $nsub?: ValueType[];
-  $sup?: ValueType[];
-  $nsup?: ValueType[];
-  $con?: ValueType;
-  $ncon?: ValueType;
+
   $exists?: boolean;
   $match?: RegExp | string;
   $nmatch?: RegExp | string;
   $bits?: number;
   $nbits?: number;
-  $typeof: string;
-  $ntypeof: string;
+  $type: string;
+  $ntype: string;
 }
 
-export type ConditionKeys = keyof Conditions<unknown>;
+export type PureFilterOperatorsNames = keyof PureFilterOperators<unknown>;
 
-export interface Operations<T> {
-  $and?: Query<T>[];
-  $or?: Query<T>[];
-  $nor?: Query<T>[];
-  $not?: Query<T>;
+const pureFilters: Record<PureFilterOperatorsNames, ConditionFn> = {
+  $eq: (valuePath: string, value: unknown) => `(${valuePath} === ${value})`,
+  $ne: (valuePath: string, value: unknown) => `(${valuePath} !== ${value})`,
+  $gt: (valuePath: string, value: unknown) => `(${valuePath} > ${value})`,
+  $gte: (valuePath: string, value: unknown) => `(${valuePath} >= ${value})`,
+  $lt: (valuePath: string, value: unknown) => `(${valuePath} < ${value})`,
+  $lte: (valuePath: string, value: unknown) => `(${valuePath} <= ${value})`,
+  $exists: (valuePath: string, value: boolean) => `((${valuePath} !== undefined && ${valuePath} !== null) === ${value})`,
+  $match: (valuePath: string, value: RegExp) => `${value}.test('' + ${valuePath})`,
+  $nmatch: (valuePath: string, value: RegExp) => `!${value}.test('' + ${valuePath})`,
+  $bits: (valuePath: string, value: unknown) => `((${valuePath} & ${value}) === ${value})`,
+  $nbits: (valuePath: string, value: unknown) => `((${valuePath} & ${value}) !== ${value})`,
+  $type: (valuePath: string, value: unknown) => `(typeof ${valuePath} === ${value})`,
+  $ntype: (valuePath: string, value: unknown) => `(typeof ${valuePath} !== ${value})`,
+};
+
+export interface EffectFilterOperators<ValueType> {
+  $in?: ReadonlyArray<ValueType>;
+  $nin?: ReadonlyArray<ValueType>;
+  $sub?: ReadonlyArray<ValueType>;
+  $nsub?: ReadonlyArray<ValueType>;
+  $sup?: ReadonlyArray<ValueType>;
+  $nsup?: ReadonlyArray<ValueType>;
+  $con?: ValueType;
+  $ncon?: ValueType;
 }
 
-export type OperationKeys = keyof Operations<unknown>;
+export type EffectFilterOperatorsNames = keyof EffectFilterOperators<unknown>;
+
+export interface StatefulFilterOperators<ValueType> extends PureFilterOperators<ValueType> {
+  $unique?: boolean;
+}
 
 export const stringify = (value: unknown) => {
   if (value === undefined) {
@@ -49,44 +87,28 @@ export const stringify = (value: unknown) => {
   return JSON.stringify(value);
 };
 
-export interface Condition {
-  (valuePath: string, value: any, context: Context): string;
-}
-
-const conditions: Record<ConditionKeys, Condition> = {
-  $eq: (valuePath: string, value: unknown) => `(${valuePath} === ${value})`,
-  $ne: (valuePath: string, value: unknown) => `(${valuePath} !== ${value})`,
-  $gt: (valuePath: string, value: unknown) => `(${valuePath} > ${value})`,
-  $gte: (valuePath: string, value: unknown) => `(${valuePath} >= ${value})`,
-  $lt: (valuePath: string, value: unknown) => `(${valuePath} < ${value})`,
-  $lte: (valuePath: string, value: unknown) => `(${valuePath} <= ${value})`,
-  $in: (valuePath: string, value: unknown, context: Context) => {
-    const name = context.register(`new Set(${value})`);
-    return `${name}.has(${valuePath})`;
+const effectFilters: Record<EffectFilterOperatorsNames, ConditionFn> = {
+  $in: (valuePath: string, value: unknown[], context: Context) => {
+    const scope = context.scope(new Set(value));
+    return `${scope}?.has(${valuePath})`;
   },
-  $nin: (valuePath: string, value: unknown, context: Context) => `!${conditions.$in(valuePath, value, context)}`,
-  $sub: (valuePath: string, value: unknown, context: Context) => {
-    const name = context.register(`new Set(${value})`);
-    return `${valuePath}.every((value) => ${name}.has(value))`;
+  $nin: (valuePath: string, value: unknown[], context: Context) => `!${effectFilters.$in(valuePath, value, context)}`,
+  $sub: (valuePath: string, value: unknown[], context: Context) => {
+    const scope = context.scope(new Set(value));
+    return `${valuePath}.every((value) => ${scope}?.has(value))`;
   },
-  $nsub: (valuePath: string, value: unknown, context: Context) => `!${conditions.$sub(valuePath, value, context)}`,
+  $nsub: (valuePath: string, value: unknown, context: Context) => `!${effectFilters.$sub(valuePath, value, context)}`,
   $sup: (valuePath: string, value: unknown, context: Context) => {
+    const scope = context.scope(value);
     const name = context.register(`new Set(${valuePath})`);
-    return `${value}.every((value) => ${name}.has(value))`;
+    return `${scope}?.every((value) => ${name}.has(value))`;
   },
-  $nsup: (valuePath: string, value: unknown, context: Context) => `!${conditions.$sup(valuePath, value, context)}`,
-  $con: (valuePath: string, value: unknown) => `${valuePath}.includes(${value})`,
-  $ncon: (valuePath: string, value: unknown) => `!${valuePath}.includes(${value})`,
-  $exists: (valuePath: string, value: boolean) => `((${valuePath} !== undefined && ${valuePath} !== null) === ${value})`,
-  $match: (valuePath: string, value: RegExp) => `${value}.test('' + ${valuePath})`,
-  $nmatch: (valuePath: string, value: RegExp) => `!${value}.test('' + ${valuePath})`,
-  $bits: (valuePath: string, value: unknown) => `((${valuePath} & ${value}) !== 0)`,
-  $nbits: (valuePath: string, value: unknown) => `((${valuePath} & ${value}) === 0)`,
-  $typeof: (valuePath: string, value: unknown) => `(typeof ${valuePath} === ${value})`,
-  $ntypeof: (valuePath: string, value: unknown) => `(typeof ${valuePath} !== ${value})`,
+  $nsup: (valuePath: string, value: unknown, context: Context) => `!${effectFilters.$sup(valuePath, value, context)}`,
+  $con: (valuePath: string, value: unknown) => `new Set(${valuePath}).has(${stringify(value)})`,
+  $ncon: (valuePath: string, value: unknown) => `!new Set(${valuePath}).has(${stringify(value)})`,
 };
 
-const operations: Record<keyof Operations<unknown>, any> = {
+const operations: Record<keyof LogicOperators<unknown>, any> = {
   $and: (value: unknown[]) => `(${value.join(' && ')})`,
   $or: (value: unknown[]) => `(${value.join(' || ')})`,
   $nor: (value: unknown[]) => `!(${value.join(' || ')})`,
@@ -98,6 +120,14 @@ class Context {
   private values: string[] = [];
   private cacheMap = new Map<string, string>();
 
+  constructor(private scopeMap: Map<string, unknown>) {}
+
+  scope<T>(value: T): string {
+    const name = `s$$${this.counter++}`;
+    this.scopeMap.set(name, value);
+    return `scope.get('${name}')`;
+  }
+
   register(code: string) {
     if (!this.cacheMap.has(code)) {
       const name = `v$$${this.counter++}`;
@@ -106,16 +136,20 @@ class Context {
     }
     return this.cacheMap.get(code)!;
   }
+
   toString() {
     return this.values.join('\n');
   }
 }
 
-const filterCodeGen = <T extends object>(query: Query<T> | undefined, valuePath: string, context: Context): string => {
+const filterCodeGen = <T extends object>(query: Filter<T> | undefined, valuePath: string, context: Context): string => {
   if (typeof query === 'object' && query !== null) {
     const condition = Object.entries(query).map(([key, value]) => {
-      if (key in conditions) {
-        return conditions[key as ConditionKeys](valuePath, stringify(value), context);
+      if (key in pureFilters) {
+        return pureFilters[key as PureFilterOperatorsNames](valuePath, stringify(value), context);
+      }
+      if (key in effectFilters) {
+        return effectFilters[key as EffectFilterOperatorsNames](valuePath, value, context);
       }
       if (key in operations) {
         const values = Array.isArray(value) ? value : [value];
@@ -123,66 +157,90 @@ const filterCodeGen = <T extends object>(query: Query<T> | undefined, valuePath:
       }
       const valueSubPath = `${valuePath}?.[${stringify(key)}]`;
       if (value instanceof RegExp) {
-        return conditions.$match(valueSubPath, value.toString(), context);
+        return pureFilters.$match(valueSubPath, stringify(value), context);
       }
       if (typeof value === 'object' && value !== null) {
         return filterCodeGen(value, valueSubPath, context);
       }
-      return conditions.$eq(valueSubPath, JSON.stringify(value), context);
+      return pureFilters.$eq(valueSubPath, stringify(value), context);
     });
     if (condition.length > 0) {
       return `${condition.join(' && ')}`;
     }
   }
-  return 'true';
+  return `${!!query}`;
 };
 
-export const createFilter = <T extends object>(query?: Query<T>) => {
-  const context = new Context();
-  const code = filterCodeGen(query, 'data', context);
-  const filter = new Function('data', `${context}\nreturn ${code};`);
-  return (data: T) => filter(data);
+const PRIMITIVES = new Set(['string', 'number', 'boolean', 'bigint', 'symbol']);
+
+export type Primitive = string | number | boolean | bigint | symbol;
+export const isPrimitive = (value: unknown): value is Primitive => PRIMITIVES.has(typeof value);
+
+export const createFilter = <T extends object | number | string | boolean | bigint | symbol>(
+  filter: Filter<T> | number | string | boolean | bigint | symbol,
+): ((data: T) => boolean) => {
+  if (isPrimitive(filter)) {
+    return (data: T) => data === filter;
+  }
+  const scope = new Map<string, unknown>();
+  const context = new Context(scope);
+  const code = filterCodeGen(filter as object, 'data', context);
+  const filterFn = new Function('data', 'scope', `${context}\nreturn ${code};`);
+  return (data: T) => filterFn(data, scope);
 };
 
-export type SortType = 'asc' | 'desc' | 1 | -1;
+export type SortType<T> = T extends number
+  ? 1 | -1
+  : T extends string
+    ? 'asc' | 'desc'
+    : T extends unknown[]
+      ? { length?: 1 | -1 } & { [Index: number]: SortType<T[number]> }
+      : boolean;
 
 export type Sort<T> = T extends object
   ? {
-      [K in keyof T]?: T[K] extends object ? Sort<T[K]> : SortType;
+      [K in keyof T]?: SortType<T[K]> | boolean;
     }
-  : SortType;
+  : SortType<T> | boolean;
 
-const SORT_EXPR = /^(asc|desc|1|-1)$/i;
-
-const SORT_MAP: Record<SortType, 1 | -1> = {
+type SortDirection = 'asc' | 'desc' | 1 | -1 | true | false;
+const SORT_MAP: Record<`${SortDirection}`, 1 | -1> = {
   asc: 1,
   desc: -1,
   1: 1,
   '-1': -1,
+  true: 1,
+  false: -1,
 };
 
-const sortCodeGen = <T>(sort: Sort<T>, valuePath: [string, string]): string => {
+const sortCodeGen = <T>(sort: Sort<T>, valuePathA: string, valuePathB: string): string => {
   if (typeof sort === 'object' && sort !== null) {
     const condition = Object.entries(sort).map(([key, value]) => {
-      const valueSubPathA = `${valuePath[0]}?.[${JSON.stringify(key)}]`;
-      const valueSubPathB = `${valuePath[1]}?.[${JSON.stringify(key)}]`;
-      return sortCodeGen(value, [valueSubPathA, valueSubPathB]);
+      const valueSubPathA = `${valuePathA}?.[${JSON.stringify(key)}]`;
+      const valueSubPathB = `${valuePathB}?.[${JSON.stringify(key)}]`;
+      return sortCodeGen(value, valueSubPathA, valueSubPathB);
     });
     if (condition.length > 0) {
       return condition.join(' || ');
     }
   }
-  if (typeof sort === 'string' && SORT_EXPR.test(sort)) {
-    return `(${valuePath[0]}?.localeCompare(${valuePath[1]}) * ${SORT_MAP[sort as SortType]})`;
+  if (typeof sort === 'string' && (sort === 'asc' || sort === 'desc')) {
+    return `(${valuePathA}?.localeCompare(${valuePathB}) * ${SORT_MAP[sort as `${SortDirection}`]})`;
   }
-  if (typeof sort === 'number' && SORT_EXPR.test('' + sort)) {
-    return `((${valuePath[0]} - ${valuePath[1]}) * ${SORT_MAP[sort as SortType]})`;
+  if (typeof sort === 'number' && (sort === 1 || sort === -1)) {
+    return `((${valuePathA} - ${valuePathB}) * ${SORT_MAP[`${sort}` as `${SortDirection}`]})`;
+  }
+  if (typeof sort === 'boolean') {
+    return `(${valuePathA} > ${valuePathB} === ${sort} ? 1 : (${valuePathA} < ${valuePathB} === ${sort} ? -1 : 0)) `;
   }
   return `0`;
 };
 
-export const createSort = <T>(sort: Sort<T>) => {
-  const code = sortCodeGen(sort, ['a', 'b']);
+export const createSort = <T>(sort?: Sort<T>): ((a: T, b: T) => number) => {
+  if (!sort) {
+    return () => 0;
+  }
+  const code = sortCodeGen(sort, 'a', 'b');
   const sortFn = new Function('a', 'b', `return ${code};`);
-  return (a: T, b: T) => sortFn(a, b);
+  return sortFn as (a: T, b: T) => number;
 };
