@@ -16,7 +16,20 @@
     "lint": "eslint src",
     "prepare": "husky"
   },
-  "keywords": [],
+  "keywords": [
+    "query",
+    "query object",
+    "mongodb",
+    "mongodb query",
+    "filter",
+    "filter object",
+    "sort",
+    "sort object"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/3axap4eHko/ajoq.git"
+  },
   "author": "Ivan Zakharchanka",
   "license": "MIT",
   "devDependencies": {

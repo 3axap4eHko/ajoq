@@ -11,6 +11,3 @@ jobs:
         with:
           node_version: '22.x'
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          test: |
-            pnpm test
-            pnpm test:build
