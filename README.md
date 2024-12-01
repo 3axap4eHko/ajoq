@@ -94,6 +94,6 @@ Copyright (c) 2024 Ivan Zakharchanka
 [downloads-image]: https://img.shields.io/npm/dw/ajoq.svg?maxAge=43200
 [npm-image]: https://img.shields.io/npm/v/ajoq.svg?maxAge=43200
 [github-url]: https://github.com/3axap4eHko/ajoq/actions
-[github-image]: https://github.com/3axap4eHko/ajoq/workflows/Build%20Package/badge.svg?branch=master
+[github-image]: https://github.com/3axap4eHko/ajoq/actions/workflows/build.yml/badge.svg?branch=master
 [snyk-url]: https://snyk.io/test/npm/ajoq/latest
 [snyk-image]: https://snyk.io/test/github/3axap4eHko/ajoq/badge.svg?maxAge=43200
