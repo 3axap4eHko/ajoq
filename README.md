@@ -2,7 +2,6 @@
 
 Another Javascript Object Query.
 
-[![Coverage Status][codecov-image]][codecov-url]
 [![Github Build Status][github-image]][github-url]
 [![NPM version][npm-image]][npm-url]
 [![Downloads][downloads-image]][npm-url]
