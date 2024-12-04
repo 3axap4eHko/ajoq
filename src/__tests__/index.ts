@@ -1,4 +1,4 @@
-import { stringify, createFilter, createSort } from '../index';
+import { stringify, createFilter, createSort, Primitive } from '../index';
 
 const positive = {
   number: 42,
@@ -70,6 +70,8 @@ describe('AJOQ test suite', () => {
         $nin: ['Goodbye World!'],
         $con: 'H',
         $ncon: 'G',
+        $incl: 'Hello',
+        $nincl: 'Goodbye',
         $match: /hello/i,
         $nmatch: /goodbye/i,
         $exists: true,
@@ -148,6 +150,15 @@ describe('AJOQ test suite', () => {
     });
     const result = data.filter(filterFn);
     expect(result).toStrictEqual([positive]);
+  });
+
+  it.each([
+    { name: 'number', filter: { $eq: 42 }, value: 42 },
+    { name: 'string', filter: { $incl: 'Hello' }, value: 'Hello World!' },
+    { name: 'string with regexp', filter: /hello/i, value: 'Hello World!' },
+    { name: 'boolean', filter: { $ne: false }, value: true },
+  ])('should work for primitive $name', ({ filter, value }) => {
+    expect(createFilter<Primitive | object>(filter)(value)).toBe(true);
   });
 
   it('should create a numeric sort asc function', () => {

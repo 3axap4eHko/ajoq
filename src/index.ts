@@ -36,6 +36,8 @@ export interface PureFilterOperators<ValueType> {
   $exists?: boolean;
   $match?: RegExp | string;
   $nmatch?: RegExp | string;
+  $incl: string;
+  $nincl: string;
   $bits?: number;
   $nbits?: number;
   $type: string;
@@ -52,8 +54,10 @@ const pureFilters: Record<PureFilterOperatorsNames, ConditionFn> = {
   $lt: (valuePath: string, value: unknown) => `(${valuePath} < ${value})`,
   $lte: (valuePath: string, value: unknown) => `(${valuePath} <= ${value})`,
   $exists: (valuePath: string, value: boolean) => `((${valuePath} !== undefined && ${valuePath} !== null) === ${value})`,
-  $match: (valuePath: string, value: RegExp) => `${value}.test('' + ${valuePath})`,
-  $nmatch: (valuePath: string, value: RegExp) => `!${value}.test('' + ${valuePath})`,
+  $match: (valuePath: string, value: RegExp) => `${value}?.test('' + ${valuePath})`,
+  $nmatch: (valuePath: string, value: RegExp) => `!${value}?.test('' + ${valuePath})`,
+  $incl: (valuePath: string, value: string) => `${valuePath}?.includes(${value})`,
+  $nincl: (valuePath: string, value: string) => `!${valuePath}?.includes(${value})`,
   $bits: (valuePath: string, value: unknown) => `((${valuePath} & ${value}) === ${value})`,
   $nbits: (valuePath: string, value: unknown) => `((${valuePath} & ${value}) !== ${value})`,
   $type: (valuePath: string, value: unknown) => `(typeof ${valuePath} === ${value})`,
@@ -186,6 +190,7 @@ export const createFilter = <T extends object | number | string | boolean | bigi
   const context = new Context(scope);
   const code = filterCodeGen(filter as object, 'data', context);
   const filterFn = new Function('data', 'scope', `${context}\nreturn ${code};`);
+  console.log(filterFn.toString());
   return (data: T) => filterFn(data, scope);
 };
 
