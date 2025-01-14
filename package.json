@@ -35,10 +35,10 @@
   "devDependencies": {
     "@swc/jest": "^0.2.37",
     "@types/jest": "^29.5.14",
-    "@types/node": "^22.10.5",
-    "@typescript-eslint/eslint-plugin": "^8.19.1",
-    "@typescript-eslint/parser": "^8.19.1",
-    "@typescript-eslint/typescript-estree": "^8.19.1",
+    "@types/node": "^22.10.6",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "@typescript-eslint/typescript-estree": "^8.20.0",
     "eslint": "^9.18.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-prettier": "^9.1.0",
@@ -52,5 +52,5 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   },
-  "packageManager": "pnpm@9.15.3"
+  "packageManager": "pnpm@9.15.4"
 }
