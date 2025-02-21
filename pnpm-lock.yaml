@@ -51,8 +51,8 @@ importers:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@22.13.4)(ts-node@10.9.2(@swc/core@1.9.3)(@types/node@22.13.4)(typescript@5.7.3))
       mongodb:
-        specifier: ^6.13.0
-        version: 6.13.0
+        specifier: ^6.13.1
+        version: 6.13.1
       prettier:
         specifier: ^3.5.1
         version: 3.5.1
@@ -736,8 +736,8 @@ packages:
   bser@2.1.1:
     resolution: {integrity: sha512-gQxTNE/GAfIIrmHLUE3oJyp5FO6HRBfhjnw4/wMmA63ZGDJnWBmgY/lyQBpnDUkGmAhbSe39tx2d/iTOAfglwQ==}
 
-  bson@6.10.1:
-    resolution: {integrity: sha512-P92xmHDQjSKPLHqFxefqMxASNq/aWJMEZugpCjf+AF/pgcUpMMQCg7t7+ewko0/u8AapvF3luf/FoehddEK+sA==}
+  bson@6.10.3:
+    resolution: {integrity: sha512-MTxGsqgYTwfshYWTRdmZRC+M7FnG1b4y7RO7p2k3X24Wq0yv1m77Wsj0BzlPzd/IowgESfsruQCUToa7vbOpPQ==}
     engines: {node: '>=16.20.1'}
 
   buffer-from@1.1.2:
@@ -1639,11 +1639,11 @@ packages:
   mongodb-connection-string-url@3.0.1:
     resolution: {integrity: sha512-XqMGwRX0Lgn05TDB4PyG2h2kKO/FfWJyCzYQbIhXUxz7ETt0I/FqHjUeqj37irJ+Dl1ZtU82uYyj14u2XsZKfg==}
 
-  mongodb@6.13.0:
-    resolution: {integrity: sha512-KeESYR5TEaFxOuwRqkOm3XOsMqCSkdeDMjaW5u2nuKfX7rqaofp7JQGoi7sVqQcNJTKuveNbzZtWMstb8ABP6Q==}
+  mongodb@6.13.1:
+    resolution: {integrity: sha512-gdq40tX8StmhP6akMp1pPoEVv+9jTYFSrga/g23JxajPAQhH39ysZrHGzQCSd9PEOnuEQEdjIWqxO7ZSwC0w7Q==}
     engines: {node: '>=16.20.1'}
     peerDependencies:
-      '@aws-sdk/credential-providers': ^3.188.0
+      '@aws-sdk/credential-providers': ^3.632.0
       '@mongodb-js/zstd': ^1.1.0 || ^2.0.0
       gcp-metadata: ^5.2.0
       kerberos: ^2.0.1
@@ -3012,7 +3012,7 @@ snapshots:
     dependencies:
       node-int64: 0.4.0
 
-  bson@6.10.1: {}
+  bson@6.10.3: {}
 
   buffer-from@1.1.2: {}
 
@@ -4128,10 +4128,10 @@ snapshots:
       '@types/whatwg-url': 11.0.5
       whatwg-url: 13.0.0
 
-  mongodb@6.13.0:
+  mongodb@6.13.1:
     dependencies:
       '@mongodb-js/saslprep': 1.1.9
-      bson: 6.10.1
+      bson: 6.10.3
       mongodb-connection-string-url: 3.0.1
 
   ms@2.1.3: {}
