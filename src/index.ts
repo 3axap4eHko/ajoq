@@ -81,12 +81,13 @@ export interface StatefulFilterOperators<ValueType> extends PureFilterOperators<
   $unique?: boolean;
 }
 
-export const stringify = (value: unknown) => {
+export const stringify = (value: unknown, context: Context) => {
   if (value === undefined) {
     return 'undefined';
   }
-  if (value instanceof RegExp) {
-    return `/${value.source}/${value.flags}`;
+  if (!isPrimitive(value) || typeof value === 'bigint') {
+    const scope = context.scope(value);
+    return scope;
   }
   return JSON.stringify(value);
 };
@@ -108,8 +109,8 @@ const effectFilters: Record<EffectFilterOperatorsNames, ConditionFn> = {
     return `${scope}?.every((value) => ${name}.has(value))`;
   },
   $nsup: (valuePath: string, value: unknown, context: Context) => `!${effectFilters.$sup(valuePath, value, context)}`,
-  $con: (valuePath: string, value: unknown) => `new Set(${valuePath}).has(${stringify(value)})`,
-  $ncon: (valuePath: string, value: unknown) => `!new Set(${valuePath}).has(${stringify(value)})`,
+  $con: (valuePath: string, value: unknown, context: Context) => `new Set(${valuePath}).has(${stringify(value, context)})`,
+  $ncon: (valuePath: string, value: unknown, context: Context) => `!new Set(${valuePath}).has(${stringify(value, context)})`,
 };
 
 const operations: Record<keyof LogicOperators<unknown>, any> = {
@@ -150,7 +151,7 @@ const filterCodeGen = <T extends object>(query: Filter<T> | undefined, valuePath
   if (typeof query === 'object' && query !== null) {
     const condition = Object.entries(query).map(([key, value]) => {
       if (key in pureFilters) {
-        return pureFilters[key as PureFilterOperatorsNames](valuePath, stringify(value), context);
+        return pureFilters[key as PureFilterOperatorsNames](valuePath, stringify(value, context), context);
       }
       if (key in effectFilters) {
         return effectFilters[key as EffectFilterOperatorsNames](valuePath, value, context);
@@ -159,14 +160,14 @@ const filterCodeGen = <T extends object>(query: Filter<T> | undefined, valuePath
         const values = Array.isArray(value) ? value : [value];
         return operations[key as OperationKeys](values.map((v) => filterCodeGen(v, valuePath, context)));
       }
-      const valueSubPath = `${valuePath}?.[${stringify(key)}]`;
+      const valueSubPath = `${valuePath}?.[${stringify(key, context)}]`;
       if (value instanceof RegExp) {
-        return pureFilters.$match(valueSubPath, stringify(value), context);
+        return pureFilters.$match(valueSubPath, stringify(value, context), context);
       }
       if (typeof value === 'object' && value !== null) {
         return filterCodeGen(value, valueSubPath, context);
       }
-      return pureFilters.$eq(valueSubPath, stringify(value), context);
+      return pureFilters.$eq(valueSubPath, stringify(value, context), context);
     });
     if (condition.length > 0) {
       return `${condition.join(' && ')}`;
@@ -190,7 +191,6 @@ export const createFilter = <T extends object | number | string | boolean | bigi
   const context = new Context(scope);
   const code = filterCodeGen(filter as object, 'data', context);
   const filterFn = new Function('data', 'scope', `${context}\nreturn ${code};`);
-  console.log(filterFn.toString());
   return (data: T) => filterFn(data, scope);
 };
 
