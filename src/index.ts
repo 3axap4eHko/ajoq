@@ -120,7 +120,7 @@ const operations: Record<keyof LogicOperators<unknown>, any> = {
   $not: (value: unknown[]) => `!(${value})`,
 };
 
-class Context {
+export class Context {
   private counter = 0;
   private values: string[] = [];
   private cacheMap = new Map<string, string>();

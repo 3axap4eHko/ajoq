@@ -1,4 +1,4 @@
-import { stringify, createFilter, createSort, Primitive } from '../index';
+import { stringify, createFilter, createSort, Context, isPrimitive, Primitive } from '../index';
 
 const positive = {
   number: 42,
@@ -20,10 +20,19 @@ const negative = {
 
 const data = [positive, negative];
 type Data = typeof data[number];
+const context = new Context(new Map<string, unknown>());
 
 describe('AJOQ test suite', () => {
   it('should stringify undefined', () => {
-    expect(stringify(undefined)).toBe('undefined');
+    expect(stringify(undefined, context)).toBe('undefined');
+  });
+
+  it('should check isPrimitive', () => {
+    expect(isPrimitive(0)).toBe(true);
+    expect(isPrimitive(0n)).toBe(true);
+    expect(isPrimitive(false)).toBe(true);
+    expect(isPrimitive('')).toBe(true);
+    expect(isPrimitive(Symbol())).toBe(true);
   });
 
   it('should create a value filter', () => {
