@@ -19,7 +19,7 @@ const negative = {
 };
 
 const data = [positive, negative];
-type Data = typeof data[number];
+type Data = (typeof data)[number];
 const context = new Context(new Map<string, unknown>());
 
 describe('AJOQ test suite', () => {
@@ -49,10 +49,12 @@ describe('AJOQ test suite', () => {
 
   it.each([
     {
-      name: 'number', filter: 42
+      name: 'number',
+      filter: 42,
     },
     {
-      name: 'number', filter: {
+      name: 'number',
+      filter: {
         $eq: 42,
         $ne: 24,
         $gt: 24,
@@ -66,13 +68,15 @@ describe('AJOQ test suite', () => {
         $exists: true,
         $type: 'number',
         $ntype: 'string',
-      }
+      },
     },
     {
-      name: 'string', filter: /hello/i
+      name: 'string',
+      filter: /hello/i,
     },
     {
-      name: 'string', filter: {
+      name: 'string',
+      filter: {
         $eq: 'Hello World!',
         $ne: 'Goodbye World!',
         $in: ['Hello World!'],
@@ -86,10 +90,11 @@ describe('AJOQ test suite', () => {
         $exists: true,
         $type: 'string',
         $ntype: 'number',
-      }
+      },
     },
     {
-      name: 'boolean', filter: {
+      name: 'boolean',
+      filter: {
         $eq: true,
         $ne: false,
         $in: [true],
@@ -97,10 +102,11 @@ describe('AJOQ test suite', () => {
         $exists: true,
         $type: 'boolean',
         $ntype: 'string',
-      }
+      },
     },
     {
-      name: 'array', filter: {
+      name: 'array',
+      filter: {
         $sub: [0, 1, 2, 3, 4],
         $nsub: [3, 4, 5, 5, 6],
         $sup: [1, 2],
@@ -111,10 +117,11 @@ describe('AJOQ test suite', () => {
         $type: 'object',
         $ntype: 'string',
         length: 3,
-      }
+      },
     },
     {
-      name: 'object', filter: {
+      name: 'object',
+      filter: {
         $exists: true,
         $type: 'object',
         $ntype: 'string',
@@ -125,34 +132,29 @@ describe('AJOQ test suite', () => {
       },
     },
     {
-      name: 'optional', filter: {
+      name: 'optional',
+      filter: {
         $exists: true,
       },
     },
     {
-      name: '$and', filter: [
-        { number: { $eq: 42 } },
-        { string: { $eq: 'Hello World!' } },
-      ],
+      name: '$and',
+      filter: [{ number: { $eq: 42 } }, { string: { $eq: 'Hello World!' } }],
     },
     {
-      name: '$or', filter: {
-        $or: [
-          { number: { $ne: 24 } },
-          { number: { $eq: 42 } },
-        ],
+      name: '$or',
+      filter: {
+        $or: [{ number: { $ne: 24 } }, { number: { $eq: 42 } }],
       },
     },
     {
-      name: '$nor', filter: [
-        { number: { $eq: 24 } },
-        { string: { $eq: 'Goodbye World!' } },
-      ],
+      name: '$nor',
+      filter: [{ number: { $eq: 24 } }, { string: { $eq: 'Goodbye World!' } }],
     },
     {
-      name: '$not', filter: { number: { $eq: 24 } },
+      name: '$not',
+      filter: { number: { $eq: 24 } },
     },
-
   ])('should create a filter function for $name', ({ name, filter }) => {
     const filterFn = createFilter<Data>({
       [name]: filter,
@@ -195,13 +197,13 @@ describe('AJOQ test suite', () => {
   });
 
   it('should create an array length sort function', () => {
-    const sortFn = createSort<Data>({ array: { length : 1 } });
+    const sortFn = createSort<Data>({ array: { length: 1 } });
     const result = data.sort(sortFn);
     expect(result).toStrictEqual([positive, negative]);
   });
 
   it('should create an array element sort function', () => {
-    const sortFn = createSort<Data>({ array: { [0] : -1 } });
+    const sortFn = createSort<Data>({ array: { [0]: -1 } });
     const result = data.sort(sortFn);
     expect(result).toStrictEqual([negative, positive]);
   });

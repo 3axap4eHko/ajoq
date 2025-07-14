@@ -36,12 +36,12 @@ export interface PureFilterOperators<ValueType> {
   $exists?: boolean;
   $match?: RegExp | string;
   $nmatch?: RegExp | string;
-  $incl: string;
-  $nincl: string;
+  $incl?: string;
+  $nincl?: string;
   $bits?: number;
   $nbits?: number;
-  $type: string;
-  $ntype: string;
+  $type?: string;
+  $ntype?: string;
 }
 
 export type PureFilterOperatorsNames = keyof PureFilterOperators<unknown>;
@@ -102,7 +102,7 @@ const effectFilters: Record<EffectFilterOperatorsNames, ConditionFn> = {
     const scope = context.scope(new Set(value));
     return `${valuePath}.every((value) => ${scope}?.has(value))`;
   },
-  $nsub: (valuePath: string, value: unknown, context: Context) => `!${effectFilters.$sub(valuePath, value, context)}`,
+  $nsub: (valuePath: string, value: unknown[], context: Context) => `!${effectFilters.$sub(valuePath, value, context)}`,
   $sup: (valuePath: string, value: unknown, context: Context) => {
     const scope = context.scope(value);
     const name = context.register(`new Set(${valuePath})`);
