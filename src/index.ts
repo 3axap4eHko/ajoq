@@ -100,17 +100,23 @@ const effectFilters: Record<EffectFilterOperatorsNames, ConditionFn> = {
   $nin: (valuePath: string, value: unknown[], context: Context) => `!${effectFilters.$in(valuePath, value, context)}`,
   $sub: (valuePath: string, value: unknown[], context: Context) => {
     const scope = context.scope(new Set(value));
-    return `${valuePath}.every((value) => ${scope}?.has(value))`;
+    return `!!${valuePath}?.every((value) => ${scope}?.has(value))`;
   },
   $nsub: (valuePath: string, value: unknown[], context: Context) => `!${effectFilters.$sub(valuePath, value, context)}`,
   $sup: (valuePath: string, value: unknown, context: Context) => {
     const scope = context.scope(value);
     const name = context.register(`new Set(${valuePath})`);
-    return `${scope}?.every((value) => ${name}.has(value))`;
+    return `!!${scope}?.every((value) => ${name}.has(value))`;
   },
   $nsup: (valuePath: string, value: unknown, context: Context) => `!${effectFilters.$sup(valuePath, value, context)}`,
-  $con: (valuePath: string, value: unknown, context: Context) => `new Set(${valuePath}).has(${stringify(value, context)})`,
-  $ncon: (valuePath: string, value: unknown, context: Context) => `!new Set(${valuePath}).has(${stringify(value, context)})`,
+  $con: (valuePath: string, value: unknown, context: Context) => {
+    const setVar = context.register(`new Set(${valuePath})`);
+    return `${setVar}.has(${stringify(value, context)})`;
+  },
+  $ncon: (valuePath: string, value: unknown, context: Context) => {
+    const setVar = context.register(`new Set(${valuePath})`);
+    return `!${setVar}.has(${stringify(value, context)})`;
+  },
 };
 
 const operations: Record<keyof LogicOperators<unknown>, any> = {
