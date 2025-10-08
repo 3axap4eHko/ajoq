@@ -120,9 +120,9 @@ const effectFilters: Record<EffectFilterOperatorsNames, ConditionFn> = {
 };
 
 const operations: Record<keyof LogicOperators<unknown>, any> = {
-  $and: (value: unknown[]) => `(${value.join(' && ')})`,
-  $or: (value: unknown[]) => `(${value.join(' || ')})`,
-  $nor: (value: unknown[]) => `!(${value.join(' || ')})`,
+  $and: (value: unknown[]) => (value.length ? `(${value.join(' && ')})` : 'true'),
+  $or: (value: unknown[]) => (value.length ? `(${value.join(' || ')})` : 'false'),
+  $nor: (value: unknown[]) => (value.length ? `!(${value.join(' || ')})` : 'true'),
   $not: (value: unknown[]) => `!(${value})`,
 };
 

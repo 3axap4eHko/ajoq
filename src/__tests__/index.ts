@@ -1,4 +1,4 @@
-import { stringify, createFilter, createSort, Context, isPrimitive, Primitive } from '../index';
+import { stringify, createFilter, createSort, Context, isPrimitive, Primitive, Filter } from '../index';
 
 const positive = {
   number: 42,
@@ -170,6 +170,12 @@ describe('AJOQ test suite', () => {
     { name: 'boolean', filter: { $ne: false }, value: true },
   ])('should work for primitive $name', ({ filter, value }) => {
     expect(createFilter<Primitive | object>(filter)(value)).toBe(true);
+  });
+
+  it('should treat empty $and as true', () => {
+    const filterFn = createFilter<Data>({ $and: [] });
+    expect(() => filterFn(positive)).not.toThrow();
+    expect(filterFn(positive)).toBe(true);
   });
 
   it('should create a numeric sort asc function', () => {
