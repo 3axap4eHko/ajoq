@@ -1,6 +1,6 @@
 {
   "name": "ajoq",
-  "version": "0.1.113",
+  "version": "0.1.114",
   "description": "",
   "type": "module",
   "types": "build/index.d.ts",
